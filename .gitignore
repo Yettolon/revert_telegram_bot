@@ -1,0 +1,15 @@
+.env
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs
+logs/
+
+# Virtual environment / lock files
+*.lock
+
+# OS files
+.DS_Store
