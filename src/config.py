@@ -30,6 +30,11 @@ class Settings(BaseSettings):
         default=None, description="API ключ Revert Finance (если требуется)"
     )
 
+    # Debank
+    DEBANK_PROFILE_URL: str = Field(
+        default="https://debank.com/profile/", description="Debank profile url"
+    )
+
     # Scheduler
     UPDATE_INTERVAL: int = Field(
         default=300, description="Интервал обновления данных в секундах"

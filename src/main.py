@@ -1,15 +1,14 @@
 import asyncio
-import logging
+
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from src.config import settings
-from src.database.session import init_db, close_db
+from src.bot.handlers import positions, start
 from src.bot.middlewares.database import UserSessionMiddleware
-from src.bot.handlers import start, settings as settings_handler
+from src.config import settings
+from src.database.session import close_db, init_db
 from src.utils.logger import setup_logger
-
 
 # Настройка логирования
 logger = setup_logger(__name__)
@@ -70,7 +69,7 @@ def register_handlers(dp: Dispatcher) -> None:
     """
     # Регистрация роутеров из модулей
     dp.include_router(start.router)
-    dp.include_router(settings_handler.router)
+    dp.include_router(positions.router)
 
     logger.info("Обработчики зарегистрированы")
 

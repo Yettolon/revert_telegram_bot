@@ -2,9 +2,9 @@ from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
+from src.bot.keyboards.main import get_main_menu_keyboard
 from src.database.models import User
 from src.utils.logger import setup_logger
-
 
 logger = setup_logger(__name__)
 
@@ -14,10 +14,6 @@ router = Router(name="start")
 
 @router.message(CommandStart())
 async def start_handler(message: Message, user: User) -> None:
-    """
-    Упрощённый обработчик /start с UserSessionMiddleware.
-    User автоматически загружается/создаётся middleware.
-    """
     logger.info(f"Пользователь {user} вызвал /start")
 
     welcome_text = (
@@ -30,4 +26,7 @@ async def start_handler(message: Message, user: User) -> None:
         f"🔹 /settings - Настройки\n"
     )
 
-    await message.answer(welcome_text)
+    await message.answer(
+        welcome_text,
+        reply_markup=get_main_menu_keyboard(),
+    )

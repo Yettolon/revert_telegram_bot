@@ -1,4 +1,5 @@
 from typing import AsyncGenerator
+
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -10,15 +11,12 @@ from sqlalchemy.orm import DeclarativeBase
 from src.config import settings
 from src.utils.logger import setup_logger
 
-
 logger = setup_logger(__name__)
 
 
 # Базовый класс для моделей
 class Base(DeclarativeBase):
     """Базовый класс для всех моделей SQLAlchemy."""
-
-    pass
 
 
 # Глобальные переменные для engine и session maker
@@ -68,7 +66,8 @@ def get_session_maker() -> async_sessionmaker[AsyncSession]:
 async def init_db() -> None:
     """
     Инициализация базы данных.
-    Создает все таблицы, если их не существует.
+    Подключение к БД и создание session maker.
+    Таблицы создаются через миграции, а не автоматически.
     """
     global engine, async_session_maker
 
@@ -81,14 +80,7 @@ async def init_db() -> None:
         # Создание session maker
         async_session_maker = get_session_maker()
 
-        # Создание всех таблиц
-        async with engine.begin() as conn:
-            # Импортируем модели, чтобы они были зарегистрированы
-            from src.database import models  # noqa: F401
-
-            await conn.run_sync(Base.metadata.create_all)
-
-        logger.info("База данных успешно инициализирована")
+        logger.info("База данных успешно инициализирована (без автосоздания таблиц)")
 
     except Exception as e:
         logger.error(f"Ошибка при инициализации базы данных: {e}", exc_info=True)

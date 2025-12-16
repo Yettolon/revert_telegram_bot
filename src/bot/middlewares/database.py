@@ -2,10 +2,10 @@ from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 
 from src.utils.logger import setup_logger
-
 
 logger = setup_logger(__name__)
 
@@ -133,15 +133,8 @@ class DatabaseSessionMiddleware(BaseMiddleware):
 
 class UserSessionMiddleware(BaseMiddleware):
     """
-    Расширенный middleware, который также загружает пользователя из БД.
-
-    Автоматически получает или создаёт пользователя на основе telegram_id
-    и передаёт его в handler вместе с сессией.
-
-    Example:
-        async def handler(message: Message, session: AsyncSession, user: User):
-            # user уже загружен из БД
-            await message.answer(f"Привет, {user.full_name}!")
+    Middleware, который загружает пользователя из БД или создаёт нового.
+    Гарантированно безопасно при параллельных запросах.
     """
 
     async def __call__(
@@ -150,7 +143,7 @@ class UserSessionMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
-        """Обработка события с загрузкой пользователя."""
+        from src.database.models import User
         from src.database.session import async_session_maker
 
         if async_session_maker is None:
@@ -159,50 +152,34 @@ class UserSessionMiddleware(BaseMiddleware):
         async with async_session_maker() as session:
             data["session"] = session
 
-            # Получаем telegram_id из события
-            telegram_id = None
-            if hasattr(event, "from_user") and event.from_user:
-                telegram_id = event.from_user.id
-            elif (
-                hasattr(event, "message") and event.message and event.message.from_user
-            ):
-                # Для CallbackQuery
-                telegram_id = event.message.from_user.id
+            # Aiogram автоматически добавляет event_from_user в data
+            telegram_user = data.get("event_from_user")
 
-            # Если есть telegram_id, загружаем или создаём пользователя
-            if telegram_id:
-                from src.database.models import User
-                from sqlalchemy import select
+            user = None
+            if telegram_user:
+                telegram_id = telegram_user.id
+                username = telegram_user.username
 
-                # Ищем пользователя
+                # Пытаемся вставить пользователя безопасно
+                stmt = (
+                    insert(User)
+                    .values(
+                        telegram_id=telegram_id,
+                        username=username,
+                    )
+                    .on_conflict_do_nothing(index_elements=["telegram_id"])
+                )
+                await session.execute(stmt)
+
+                # Загружаем пользователя из базы
                 result = await session.execute(
                     select(User).where(User.telegram_id == telegram_id)
                 )
-                user = result.scalar_one_or_none()
+                user = result.scalar_one()
 
-                # Если пользователь не найден, создаём нового
-                if user is None:
-                    user_data = {
-                        "telegram_id": telegram_id,
-                    }
-
-                    # Добавляем дополнительные данные если есть
-                    if hasattr(event, "from_user"):
-                        user_data.update(
-                            {
-                                "username": event.from_user.username,
-                            }
-                        )
-
-                    user = User(**user_data)
-                    session.add(user)
-                    await session.commit()
-                    await session.refresh(user)
-
-                    logger.info(f"Создан новый пользователь: {user}")
-
-                # Добавляем пользователя в data
                 data["user"] = user
+            else:
+                logger.warning("event_from_user отсутствует в контексте")
 
             try:
                 result = await handler(event, data)
