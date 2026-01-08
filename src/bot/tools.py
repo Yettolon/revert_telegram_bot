@@ -1,6 +1,7 @@
 from urllib.parse import urlparse
 
 from src.bot import EXCHANGE_ENUM_TO_SLUG, EXCHANGE_SLUG_MAP, REVERT_POSITION_RE
+from src.config import settings
 from src.database.enums import ExchangeEnum, NetworkEnum
 
 
@@ -41,4 +42,4 @@ def build_revert_position_url(
     if not exchange_slug:
         raise ValueError(f"Error mapping: {exchange}")
 
-    return f"https://revert.finance/#/{exchange_slug}-position/{network.value}/{nft_id}"
+    return f"{settings.REVERT_FINANCE_URL}/#/{exchange_slug}-position/{network.value}/{nft_id}"
