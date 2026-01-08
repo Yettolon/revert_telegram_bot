@@ -23,11 +23,11 @@ class Settings(BaseSettings):
     DB_PASSWORD: str = Field(..., description="Пароль БД")
 
     # Revert Finance API
+    REVERT_FINANCE_URL: str = Field(
+        default="https://revert.finance", description="URL Revert Finance website"
+    )
     REVERT_API_URL: str = Field(
         default="https://api.revert.finance", description="URL Revert Finance API"
-    )
-    REVERT_API_KEY: str | None = Field(
-        default=None, description="API ключ Revert Finance (если требуется)"
     )
 
     # Debank

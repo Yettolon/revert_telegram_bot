@@ -62,6 +62,10 @@ async def position_detail(callback: CallbackQuery, session: AsyncSession):
 
     builder = InlineKeyboardBuilder()
 
+    builder.row(
+        InlineKeyboardButton(text="🔗 View on Revert Finance", url=position.revert_url)
+    )
+
     if position.owner_address:
         builder.row(
             InlineKeyboardButton(
@@ -70,7 +74,6 @@ async def position_detail(callback: CallbackQuery, session: AsyncSession):
             )
         )
 
-    # Кнопка удалить позицию
     builder.row(
         InlineKeyboardButton(
             text="❌ Delete Position", callback_data=f"delete_position_{position.id}"

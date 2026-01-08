@@ -259,3 +259,10 @@ class Position(Base):
             f"exchange={self.exchange}, "
             f"network={self.network})>"
         )
+
+    @cached_property
+    def revert_url(self) -> str:
+        """Ссылка на позицию на Revert Finance"""
+        from src.bot.tools import build_revert_position_url
+
+        return build_revert_position_url(self.exchange, self.network, self.nft_id)

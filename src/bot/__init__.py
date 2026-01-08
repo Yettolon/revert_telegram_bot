@@ -9,6 +9,13 @@ EXCHANGE_SLUG_MAP = {
     "aerodrome": ExchangeEnum.aerodrome,
 }
 
+EXCHANGE_ENUM_TO_SLUG = {
+    ExchangeEnum.uniswapv3: "uniswap",
+    ExchangeEnum.uniswapv4: "uniswapv4",
+    ExchangeEnum.pancakeswap: "pancake",
+    ExchangeEnum.aerodrome: "aerodrome",
+}
+
 
 REVERT_POSITION_RE = re.compile(
     r"^/(?P<exchange>[a-z0-9]+)-position/"

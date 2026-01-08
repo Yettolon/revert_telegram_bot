@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from src.bot import EXCHANGE_SLUG_MAP, REVERT_POSITION_RE
+from src.bot import EXCHANGE_ENUM_TO_SLUG, EXCHANGE_SLUG_MAP, REVERT_POSITION_RE
 from src.database.enums import ExchangeEnum, NetworkEnum
 
 
@@ -32,3 +32,13 @@ def parse_revert_position_url(url: str) -> tuple[ExchangeEnum, NetworkEnum, str]
         raise ValueError("Неизвестная сеть")
 
     return exchange, network, nft_id
+
+
+def build_revert_position_url(
+    exchange: ExchangeEnum, network: NetworkEnum, nft_id: str | int
+) -> str:
+    exchange_slug = EXCHANGE_ENUM_TO_SLUG.get(exchange)
+    if not exchange_slug:
+        raise ValueError(f"Error mapping: {exchange}")
+
+    return f"https://revert.finance/#/{exchange_slug}-position/{network.value}/{nft_id}"
