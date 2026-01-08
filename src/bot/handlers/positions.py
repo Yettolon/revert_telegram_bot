@@ -12,8 +12,8 @@ from src.bot.keyboards.positions import (
     get_add_position_method_keyboard,
     get_exchange_keyboard,
     get_network_keyboard,
-    get_positions_keyboard,
 )
+from src.bot.services import show_positions
 from src.bot.states.positions import AddPositionStates
 from src.bot.tools import parse_revert_position_url
 from src.config import settings
@@ -26,22 +26,25 @@ logger = setup_logger(__name__)
 router = Router(name="positions")
 
 
-@router.message(lambda message: message.text == "📊 Мои позиции")
+@router.message(lambda message: message.text == "📊 My positions")
 async def positions_handler(message: Message, user: User, session: AsyncSession):
-    result = await session.execute(
-        select(Position).join(Position.users).where(User.id == user.id)
+    await show_positions(
+        message=message,
+        user=user,
+        session=session,
     )
-    positions = result.scalars().all()
 
-    if not positions:
-        await message.answer(
-            "У вас пока нет позиций.",
-            reply_markup=get_positions_keyboard([]),  # передаем пустой список
-        )
-        return
 
-    await message.answer(
-        "Ваши позиции:", reply_markup=get_positions_keyboard(positions)
+@router.callback_query(lambda c: c.data == "positions_back")
+async def back_to_positions(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    user: User,
+):
+    await show_positions(
+        callback=callback,
+        user=user,
+        session=session,
     )
 
 
@@ -53,7 +56,7 @@ async def position_detail(callback: CallbackQuery, session: AsyncSession):
     position = result.scalar_one_or_none()
 
     if not position:
-        await callback.message.answer("Позиция не найдена.")
+        await callback.message.answer("Position not found.")
         await callback.answer()
         return
 
@@ -62,7 +65,7 @@ async def position_detail(callback: CallbackQuery, session: AsyncSession):
     if position.owner_address:
         builder.row(
             InlineKeyboardButton(
-                text="🔎 Посмотреть в Debank",
+                text="👉 View on DeBank",
                 url=f"{settings.DEBANK_PROFILE_URL}{position.owner_address}",
             )
         )
@@ -70,18 +73,24 @@ async def position_detail(callback: CallbackQuery, session: AsyncSession):
     # Кнопка удалить позицию
     builder.row(
         InlineKeyboardButton(
-            text="❌ Удалить позицию", callback_data=f"delete_position_{position.id}"
+            text="❌ Delete Position", callback_data=f"delete_position_{position.id}"
         )
     )
     builder.row(
-        InlineKeyboardButton(text="⬅️ Назад к позициям", callback_data="positions_back")
+        InlineKeyboardButton(text="⬅️ Back to positions", callback_data="positions_back")
     )
 
+    status_emoji = "🟢" if position.is_in_range else "🔴"
+    status_text = "In range" if position.is_in_range else "Out of range"
+
     await callback.message.answer(
-        f"Детали позиции:\n"
+        f"{status_emoji} <b>{status_text}</b>\n"
         f"Exchange: {position.exchange.value}\n"
         f"Network: {position.network.value}\n"
-        f"NFT ID позиции: {position.nft_id}",
+        f"NFT ID: {position.nft_id}\n"
+        f"Current price: {position.current_price}\n"
+        f"Min price: {position.min_price}\n"
+        f"Max price: {position.max_price}\n",
         reply_markup=builder.as_markup(),
     )
     await callback.answer()
@@ -114,14 +123,14 @@ async def delete_position(callback: CallbackQuery, session: AsyncSession, user: 
         await session.delete(position)
 
     await session.commit()
-    await callback.message.answer("Позиция удалена.")
+    await callback.message.answer("Position deleted.")
     await callback.answer()
 
 
 @router.callback_query(lambda c: c.data == "positions_add")
 async def add_position_callback(callback: CallbackQuery):
     await callback.message.answer(
-        "Выберите метод добавления позиции:",
+        "Select a method to add a position:",
         reply_markup=get_add_position_method_keyboard(),
     )
     await callback.answer()
@@ -130,7 +139,7 @@ async def add_position_callback(callback: CallbackQuery):
 @router.callback_query(lambda c: c.data == "add_position_manual")
 async def manual_add_start(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
-        "Выберите Exchange:", reply_markup=get_exchange_keyboard()
+        "Select an exchange:", reply_markup=get_exchange_keyboard()
     )
     await state.set_state(AddPositionStates.choosing_exchange)
     await callback.answer()
@@ -146,7 +155,7 @@ async def choose_exchange(callback: CallbackQuery, state: FSMContext):
 
     # Переходим к выбору сети
     await callback.message.answer(
-        "Выберите Network:", reply_markup=get_network_keyboard()
+        "Select a network:", reply_markup=get_network_keyboard()
     )
     await state.set_state(AddPositionStates.choosing_network)  # <- важно!
     await callback.answer()
@@ -160,7 +169,7 @@ async def choose_network(callback: CallbackQuery, state: FSMContext):
     network = callback.data.split("network_")[1]
     await state.update_data(network=network)
 
-    await callback.message.answer("Введите ID позиции (NFT):")
+    await callback.message.answer("Enter the position ID (NFT):")
     await state.set_state(AddPositionStates.entering_position_id)
     await callback.answer()
 
@@ -184,7 +193,7 @@ async def enter_position_id(
                 result = await resp.json()
             except Exception:
                 await message.answer(
-                    "Ошибка при обращении к Revert API. Попробуйте позже."
+                    "Error contacting the Revert API. Please try again later."
                 )
                 return
 
@@ -195,7 +204,7 @@ async def enter_position_id(
 
     data_resp = result["data"]
     if str(data_resp.get("nft_id")) != nft_id:
-        await message.answer("Позиция не найдена или ID не совпадает.")
+        await message.answer("Position not found or ID does not match.")
         return
 
     # Проверяем, есть ли уже такая позиция в базе
@@ -214,9 +223,9 @@ async def enter_position_id(
     token_1 = tokens[0] if len(tokens) > 0 else {}
     token_2 = tokens[1] if len(tokens) > 1 else {}
     owner = data_resp.get("owner")
+    in_range = result["data"].get("in_range", False)
 
     if position:
-        # Если позиция уже есть — добавляем пользователя в M2M
         if user not in position.users:
             position.users.append(user)
             await session.commit()
@@ -224,15 +233,17 @@ async def enter_position_id(
             "🟢 <b>In range</b>" if position.is_in_range else "🔴 <b>Out of range</b>"
         )
         await message.answer(
-            f"Вы подписаны на существующую позицию:\n"
+            f"✅ New position added!\n"
             f"{status}\n"
             f"Tokens: {position.token_1_symbol}/{position.token_2_symbol}\n"
-            f"Exchange: {position.exchange.value}\n"
-            f"Network: {position.network.value}\n"
-            f"NFT ID позиции: {position.nft_id}\n"
+            f"Exchange: {exchange.value}\n"
+            f"Network: {network.value}\n"
+            f"NFT ID: {nft_id}\n"
+            f"Current price: {position.current_price}\n"
+            f"Min price: {position.min_price}\n"
+            f"Max price: {position.max_price}\n"
         )
     else:
-        # Если позиции нет — создаем новую и добавляем пользователя
         new_position = Position(
             exchange=exchange,
             network=network,
@@ -243,7 +254,11 @@ async def enter_position_id(
             token_2_symbol=token_2.get("symbol"),
             token_2_address=token_2.get("address"),
             owner_address=owner,
-            users=[user],  # сразу M2M связь
+            is_in_range=in_range,
+            current_price=float(data_resp.get("pool_price")),
+            min_price=float(data_resp.get("price_lower")),
+            max_price=float(data_resp.get("price_upper")),
+            users=[user],
         )
         session.add(new_position)
         await session.commit()
@@ -254,12 +269,15 @@ async def enter_position_id(
             else "🔴 <b>Out of range</b>"
         )
         await message.answer(
-            f"Новая позиция добавлена:\n"
+            f"✅ New position added!\n"
             f"{status}\n"
             f"Tokens: {new_position.token_1_symbol}/{new_position.token_2_symbol}\n"
-            f"Exchange: {exchange}\n"
-            f"Network: {network}\n"
-            f"NFT ID позиции: {nft_id}\n"
+            f"Exchange: {exchange.value}\n"
+            f"Network: {network.value}\n"
+            f"NFT ID: {nft_id}\n"
+            f"Current price: {new_position.current_price}\n"
+            f"Min price: {new_position.min_price}\n"
+            f"Max price: {new_position.max_price}\n"
         )
 
     await state.clear()
@@ -268,14 +286,14 @@ async def enter_position_id(
 @router.callback_query(lambda c: c.data == "add_position_cancel")
 async def cancel_add_position(callback: CallbackQuery, state: FSMContext):
     await state.clear()
-    await callback.message.answer("Добавление позиции отменено.")
+    await callback.message.answer("Position addition canceled.")
     await callback.answer()
 
 
 @router.callback_query(lambda c: c.data == "add_position_url")
 async def add_by_url(callback: CallbackQuery, state: FSMContext):
     await state.set_state(AddPositionStates.entering_url)
-    await callback.message.answer("Введите ссылку на позицию с revert.finance")
+    await callback.message.answer("Enter the position URL from revert.finance")
     await callback.answer()
 
 
@@ -301,23 +319,24 @@ async def add_position_by_url(
                 result = await resp.json()
             except Exception:
                 await message.answer(
-                    "Ошибка при обращении к Revert API. Попробуйте позже."
+                    "Error contacting the Revert API. Please try again later."
                 )
                 return
 
     if not (result.get("success") and result.get("data")):
-        await message.answer("Позиция не найдена в Revert API.")
+        await message.answer("Position not found in the Revert API.")
         return
 
     data_resp = result["data"]
     if str(data_resp.get("nft_id")) != nft_id:
-        await message.answer("Позиция не найдена или ID не совпадает.")
+        await message.answer("Position not found or ID does not match.")
         return
 
     tokens = list(data_resp.get("tokens", {}).values())
     token_1 = tokens[0] if len(tokens) > 0 else {}
     token_2 = tokens[1] if len(tokens) > 1 else {}
     owner = data_resp.get("owner")
+    in_range = result["data"].get("in_range", False)
 
     # Проверяем, есть ли уже такая позиция в базе
     result = await session.execute(
@@ -340,12 +359,15 @@ async def add_position_by_url(
             "🟢 <b>In range</b>" if position.is_in_range else "🔴 <b>Out of range</b>"
         )
         await message.answer(
-            f"Вы подписаны на существующую позицию:\n"
+            f"✅ New position added!\n"
             f"{status}\n"
             f"Tokens: {position.token_1_symbol}/{position.token_2_symbol}\n"
-            f"Exchange: {position.exchange.value}\n"
-            f"Network: {position.network.value}\n"
-            f"ID позиции: {position.nft_id}\n"
+            f"Exchange: {exchange.value}\n"
+            f"Network: {network.value}\n"
+            f"NFT ID: {nft_id}\n"
+            f"Current price: {position.current_price}\n"
+            f"Min price: {position.min_price}\n"
+            f"Max price: {position.max_price}\n"
         )
     else:
         # Если позиции нет — создаем новую и добавляем пользователя
@@ -359,7 +381,11 @@ async def add_position_by_url(
             token_2_symbol=token_2.get("symbol"),
             token_2_address=token_2.get("address"),
             owner_address=owner,
-            users=[user],  # M2M связь
+            is_in_range=in_range,
+            current_price=float(data_resp.get("pool_price")),
+            min_price=float(data_resp.get("price_lower")),
+            max_price=float(data_resp.get("price_upper")),
+            users=[user],
         )
         session.add(new_position)
         await session.commit()
@@ -370,12 +396,15 @@ async def add_position_by_url(
             else "🔴 <b>Out of range</b>"
         )
         await message.answer(
-            f"Новая позиция добавлена:\n"
+            f"✅ New position added!\n"
             f"{status}\n"
             f"Tokens: {new_position.token_1_symbol}/{new_position.token_2_symbol}\n"
             f"Exchange: {exchange.value}\n"
             f"Network: {network.value}\n"
-            f"ID позиции: {nft_id}\n"
+            f"NFT ID: {nft_id}\n"
+            f"Current price: {new_position.current_price}\n"
+            f"Min price: {new_position.min_price}\n"
+            f"Max price: {new_position.max_price}\n"
         )
 
     await state.clear()

@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     container_name: revert_bot_postgres
@@ -22,6 +23,22 @@ services:
       - bot_network
     restart: unless-stopped
 
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: revert_bot_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bot_network
+    restart: unless-stopped
+
+  # Telegram Bot
   bot:
     build:
       context: .
@@ -31,12 +48,61 @@ services:
       - .env
     environment:
       - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - .:/app
       - ./logs:/app/logs
+    networks:
+      - bot_network
+    restart: unless-stopped
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: revert_bot_celery_worker
+    command: uv run celery -A src.celery worker -l info
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    networks:
+      - bot_network
+    restart: unless-stopped
+
+  # Celery Beat
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: revert_bot_celery_beat
+    command: uv run celery -A src.celery beat -l info
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
     networks:
       - bot_network
     restart: unless-stopped

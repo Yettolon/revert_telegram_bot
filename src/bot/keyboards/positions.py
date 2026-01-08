@@ -24,7 +24,7 @@ def get_positions_keyboard(positions: list[Position]) -> InlineKeyboardMarkup:
 
     # Кнопка "Добавить позицию"
     builder.row(
-        InlineKeyboardButton(text="➕ Добавить позицию", callback_data="positions_add")
+        InlineKeyboardButton(text="➕ Add Position", callback_data="positions_add")
     )
 
     return builder.as_markup()
@@ -39,14 +39,12 @@ def get_add_position_method_keyboard() -> InlineKeyboardMarkup:
 
     builder.row(
         InlineKeyboardButton(
-            text="🌐 Добавить через revert.finance URL",
+            text="🌐 Add via revert.finance URL",
             callback_data="add_position_url",
         )
     )
     builder.row(
-        InlineKeyboardButton(
-            text="✏️ Добавить вручную", callback_data="add_position_manual"
-        )
+        InlineKeyboardButton(text="✏️ Add manually", callback_data="add_position_manual")
     )
 
     return builder.as_markup()
