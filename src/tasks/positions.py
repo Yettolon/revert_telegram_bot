@@ -47,7 +47,7 @@ async def _check_all_positions():
             # Загружаем только те позиции, у которых есть хотя бы один активный пользователь
             subquery = (
                 select(user_positions.c.position_id)
-                .where(user_positions.c.is_active == True)
+                .where(user_positions.c.is_active == True)  # noqa
                 .distinct()
             )
 
@@ -142,7 +142,7 @@ async def check_single_position(position: Position, session):
             .where(
                 and_(
                     user_positions.c.position_id == position.id,
-                    user_positions.c.is_active == True,
+                    user_positions.c.is_active == True,  # noqa
                 )
             )
         )
