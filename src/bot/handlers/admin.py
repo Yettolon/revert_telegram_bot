@@ -29,7 +29,7 @@ async def admin_panel_handler(message: Message):
 @router.message(lambda message: message.text == "⬅️ Main Menu")
 async def back_to_main_menu_handler(message: Message):
     """Возврат в главное меню."""
-    welcome_text = "👋 Welcome to the Main Menu!\nChoose a section:"
+    welcome_text = "👋 Welcome to the Main Menu!\n"
 
     keyboard = get_admin_menu_keyboard()
 
@@ -42,19 +42,52 @@ async def back_to_main_menu_handler(message: Message):
 @router.message(lambda message: message.text == "📁 Download Logs")
 @admin_only
 async def send_logs_handler(message: Message):
-    """Send all log files from the logs folder to the admin."""
-    if not LOGS_DIR.exists() or not any(LOGS_DIR.iterdir()):
-        await message.answer("📁 No logs found.")
+    """Send all non-empty log files from the logs folder to the admin."""
+    if not LOGS_DIR.exists():
+        await message.answer("📁 Logs folder does not exist.")
+        return
+
+    log_files = [f for f in LOGS_DIR.iterdir() if f.is_file() and f.stat().st_size > 0]
+
+    if not log_files:
+        await message.answer("📁 No non-empty logs found.")
         return
 
     await message.answer("📤 Starting log export...")
 
-    for log_file in LOGS_DIR.iterdir():
-        if log_file.is_file():
-            await message.answer_document(
-                FSInputFile(log_file), caption=f"Log file: {log_file.name}"
-            )
+    for log_file in log_files:
+        await message.answer_document(
+            FSInputFile(log_file),
+            caption=f"Log file: {log_file.name}",
+        )
+
+    empty = len(
+        [f for f in LOGS_DIR.iterdir() if f.is_file() and f.stat().st_size == 0]
+    )
 
     await message.answer(
-        "✅ All logs have been sent.", reply_markup=get_admin_menu_keyboard()
+        f"📤 Logs sent.\n" f"📄 Sent: {len(log_files)}\n" f"⚠️ Empty skipped: {empty}",
+    )
+
+
+@router.message(lambda message: message.text == "🗑 Clear Logs")
+@admin_only
+async def clear_logs_handler(message: Message):
+    """Clear log files without deleting them."""
+    if not LOGS_DIR.exists() or not any(LOGS_DIR.iterdir()):
+        await message.answer("📁 Logs folder is empty.")
+        return
+
+    cleared = 0
+
+    for log_file in LOGS_DIR.iterdir():
+        if log_file.is_file():
+            with open(log_file, "w"):
+                pass
+            cleared += 1
+
+    await message.answer(
+        f"🧹 Logs cleared.\nFiles cleaned: <b>{cleared}</b>",
+        parse_mode="HTML",
+        reply_markup=get_admin_panel_keyboard(),
     )

@@ -5,26 +5,35 @@ from src.database.enums import ExchangeEnum, NetworkEnum
 from src.database.models import Position
 
 
-def get_positions_keyboard(positions: list[Position]) -> InlineKeyboardMarkup:
+def get_positions_keyboard(
+    rows: list[tuple[Position, bool]],
+) -> InlineKeyboardMarkup:
     """
-    Клавиатура для раздела 'Мои позиции':
-    - Список позиций пользователя (кнопки проваливания)
-    - Кнопка 'Добавить позицию'
-    - Кнопка 'Назад'
+    Keyboard for 'My positions':
+    - List of user positions (with notification status)
+    - Add position button
     """
     builder = InlineKeyboardBuilder()
 
-    for pos in positions:
+    for pos, is_active in rows:
+        notify_emoji = "🔔" if is_active else "🔕"
+
         builder.row(
             InlineKeyboardButton(
-                text=f"{pos.exchange.value} / {pos.network.value} / NFT {pos.nft_id}",
+                text=(
+                    f"{notify_emoji} "
+                    f"{pos.exchange.value} / "
+                    f"{pos.network.value} / NFT {pos.nft_id}"
+                ),
                 callback_data=f"position_{pos.id}",
             )
         )
 
-    # Кнопка "Добавить позицию"
     builder.row(
-        InlineKeyboardButton(text="➕ Add Position", callback_data="positions_add")
+        InlineKeyboardButton(
+            text="➕ Add Position",
+            callback_data="positions_add",
+        )
     )
 
     return builder.as_markup()

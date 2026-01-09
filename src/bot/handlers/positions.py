@@ -2,8 +2,7 @@ import aiohttp
 from aiogram import Router
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -13,11 +12,11 @@ from src.bot.keyboards.positions import (
     get_exchange_keyboard,
     get_network_keyboard,
 )
-from src.bot.services import show_positions
+from src.bot.services import render_position_detail, show_positions
 from src.bot.states.positions import AddPositionStates
 from src.bot.tools import parse_revert_position_url
 from src.config import settings
-from src.database.models import Position, User
+from src.database.models import Position, User, user_positions
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -50,53 +49,60 @@ async def back_to_positions(
 
 # Обработчик деталей позиции
 @router.callback_query(lambda c: c.data.startswith("position_"))
-async def position_detail(callback: CallbackQuery, session: AsyncSession):
+async def position_detail(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    user: User,
+):
     position_id = int(callback.data.split("_")[1])
-    result = await session.execute(select(Position).where(Position.id == position_id))
-    position = result.scalar_one_or_none()
 
-    if not position:
-        await callback.message.answer("Position not found.")
-        await callback.answer()
-        return
-
-    builder = InlineKeyboardBuilder()
-
-    builder.row(
-        InlineKeyboardButton(text="🔗 View on Revert Finance", url=position.revert_url)
+    await render_position_detail(
+        message=callback.message,
+        session=session,
+        user=user,
+        position_id=position_id,
     )
 
-    if position.owner_address:
-        builder.row(
-            InlineKeyboardButton(
-                text="👉 View on DeBank",
-                url=f"{settings.DEBANK_PROFILE_URL}{position.owner_address}",
-            )
-        )
-
-    builder.row(
-        InlineKeyboardButton(
-            text="❌ Delete Position", callback_data=f"delete_position_{position.id}"
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(text="⬅️ Back to positions", callback_data="positions_back")
-    )
-
-    status_emoji = "🟢" if position.is_in_range else "🔴"
-    status_text = "In range" if position.is_in_range else "Out of range"
-
-    await callback.message.answer(
-        f"{status_emoji} <b>{status_text}</b>\n"
-        f"Exchange: {position.exchange.value}\n"
-        f"Network: {position.network.value}\n"
-        f"NFT ID: {position.nft_id}\n"
-        f"Current price: {position.current_price}\n"
-        f"Min price: {position.min_price}\n"
-        f"Max price: {position.max_price}\n",
-        reply_markup=builder.as_markup(),
-    )
     await callback.answer()
+
+
+@router.callback_query(lambda c: c.data.startswith("toggle_position_notify_"))
+async def toggle_position_notification(
+    callback: CallbackQuery,
+    session: AsyncSession,
+    user: User,
+):
+    position_id = int(callback.data.split("_")[-1])
+
+    result = await session.execute(
+        select(user_positions.c.is_active).where(
+            user_positions.c.user_id == user.id,
+            user_positions.c.position_id == position_id,
+        )
+    )
+    is_active = result.scalar_one()
+
+    await session.execute(
+        user_positions.update()
+        .where(
+            user_positions.c.user_id == user.id,
+            user_positions.c.position_id == position_id,
+        )
+        .values(is_active=not is_active)
+    )
+
+    await session.commit()
+
+    await render_position_detail(
+        message=callback.message,
+        session=session,
+        user=user,
+        position_id=position_id,
+    )
+
+    await callback.answer(
+        "🔔 Notifications enabled" if not is_active else "🔕 Notifications disabled"
+    )
 
 
 @router.callback_query(lambda c: c.data.startswith("delete_position_"))
@@ -195,9 +201,7 @@ async def enter_position_id(
                 resp.raise_for_status()
                 result = await resp.json()
             except Exception:
-                await message.answer(
-                    "Error contacting the Revert API. Please try again later."
-                )
+                await message.answer("The position was not found")
                 return
 
     # Проверяем, что данные валидные
@@ -311,6 +315,7 @@ async def add_position_by_url(
         exchange, network, nft_id = parse_revert_position_url(message.text.strip())
     except ValueError as e:
         await message.answer(f"❌ {e}")
+        await state.clear()
         return
 
     url = f"{settings.REVERT_API_URL}/v1/positions/{network.value}/{exchange.value}/{nft_id}"
@@ -321,13 +326,13 @@ async def add_position_by_url(
                 resp.raise_for_status()
                 result = await resp.json()
             except Exception:
-                await message.answer(
-                    "Error contacting the Revert API. Please try again later."
-                )
+                await message.answer("The position was not found")
+                await state.clear()
                 return
 
     if not (result.get("success") and result.get("data")):
         await message.answer("Position not found in the Revert API.")
+        await state.clear()
         return
 
     data_resp = result["data"]

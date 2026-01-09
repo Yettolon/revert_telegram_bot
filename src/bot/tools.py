@@ -1,23 +1,26 @@
 from urllib.parse import urlparse
 
+from sqlalchemy import select
+
 from src.bot import EXCHANGE_ENUM_TO_SLUG, EXCHANGE_SLUG_MAP, REVERT_POSITION_RE
 from src.config import settings
 from src.database.enums import ExchangeEnum, NetworkEnum
+from src.database.models import user_positions
 
 
 def parse_revert_position_url(url: str) -> tuple[ExchangeEnum, NetworkEnum, str]:
     parsed = urlparse(url)
 
     if parsed.netloc != "revert.finance":
-        raise ValueError("Это не ссылка revert.finance")
+        raise ValueError("This is not a revert.finance URL")
 
     fragment = parsed.fragment
     if not fragment:
-        raise ValueError("В ссылке отсутствует fragment (#/...)")
+        raise ValueError("The URL is missing a fragment (#/...)")
 
     match = REVERT_POSITION_RE.match(fragment)
     if not match:
-        raise ValueError("Некорректный формат ссылки")
+        raise ValueError("Invalid URL format")
 
     exchange_slug = match.group("exchange")
     network_raw = match.group("network")
@@ -25,12 +28,12 @@ def parse_revert_position_url(url: str) -> tuple[ExchangeEnum, NetworkEnum, str]
 
     exchange = EXCHANGE_SLUG_MAP.get(exchange_slug)
     if not exchange:
-        raise ValueError("Неизвестная биржа")
+        raise ValueError("Unknown exchange")
 
     try:
         network = NetworkEnum(network_raw)
     except ValueError:
-        raise ValueError("Неизвестная сеть")
+        raise ValueError("Unknown network")
 
     return exchange, network, nft_id
 
@@ -43,3 +46,17 @@ def build_revert_position_url(
         raise ValueError(f"Error mapping: {exchange}")
 
     return f"{settings.REVERT_FINANCE_URL}/#/{exchange_slug}-position/{network.value}/{nft_id}"
+
+
+async def get_position_active_for_user(
+    session,
+    user_id: int,
+    position_id: int,
+) -> bool:
+    result = await session.execute(
+        select(user_positions.c.is_active).where(
+            user_positions.c.user_id == user_id,
+            user_positions.c.position_id == position_id,
+        )
+    )
+    return result.scalar_one_or_none() is True

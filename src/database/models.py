@@ -97,6 +97,15 @@ class User(Base):
         back_populates="users",
     )
 
+    # notification
+    is_system_notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        comment="Whether system notifications are enabled for the user",
+    )
+
     @cached_property
     def positions_count(self) -> int:
         """Общее количество позиций пользователя (кешируется)"""

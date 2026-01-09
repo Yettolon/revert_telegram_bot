@@ -1,5 +1,8 @@
 from aiogram import Router
+from aiogram.types import Message
 
+from src.bot.keyboards.settings import get_settings_keyboard
+from src.database.models import User
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -8,19 +11,44 @@ logger = setup_logger(__name__)
 router = Router(name="settings")
 
 
-# @router.message(Command("settings"))
-# async def settings_handler(message: Message, user: User) -> None:
-#     """
-#     Упрощённый обработчик с UserSessionMiddleware.
-#     """
-#     settings_text = (
-#         f"⚙️ <b>Настройки</b>\n\n"
-#         f"👤 Пользователь: {user.username}\n"
-#         f"🆔 Telegram ID: <code>{user.telegram_id}</code>\n"
-#         f"📅 Зарегистрирован: {user.created_at.strftime('%d.%m.%Y')}\n\n"
-#         f"Выберите раздел настроек:"
-#     )
+@router.message(lambda message: message.text == "⚙️ Settings")
+async def settings_handler(
+    message: Message,
+    user: User,
+):
+    await message.answer(
+        """⚙️ Settings
 
-#     await message.answer(settings_text, reply_markup=get_settings_keyboard())
+Manage bot preferences.
 
-#     logger.info(f"Пользователь {user} открыл настройки")
+🔔 System notifications""",
+        reply_markup=get_settings_keyboard(user),
+    )
+
+
+@router.message(
+    lambda message: message.text
+    in {
+        "🔕 Disable system notifications",
+        "🔔 Enable system notifications",
+    }
+)
+async def toggle_system_notifications_handler(
+    message: Message,
+    user: User,
+    session,
+):
+    user.is_system_notifications_enabled = not user.is_system_notifications_enabled
+
+    await session.commit()
+
+    status_text = (
+        "🔔 System notifications enabled"
+        if user.is_system_notifications_enabled
+        else "🔕 System notifications disabled"
+    )
+
+    await message.answer(
+        status_text,
+        reply_markup=get_settings_keyboard(user),
+    )

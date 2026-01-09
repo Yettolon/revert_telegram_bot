@@ -6,6 +6,7 @@ def get_admin_panel_keyboard() -> ReplyKeyboardMarkup:
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📁 Download Logs")],
+            [KeyboardButton(text="🗑 Clear Logs")],
             [KeyboardButton(text="⬅️ Main Menu")],
         ],
         resize_keyboard=True,
