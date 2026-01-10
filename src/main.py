@@ -1,5 +1,6 @@
 import asyncio
 
+import uvloop
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -128,9 +129,12 @@ async def main() -> None:
 
 if __name__ == "__main__":
     try:
-        # Запуск приложения
-        asyncio.run(main())
+        with asyncio.Runner(
+            loop_factory=uvloop.new_event_loop,
+            debug=settings.DEBUG,
+        ) as runner:
+            runner.run(main())
     except KeyboardInterrupt:
         logger.info("Бот остановлен пользователем (Ctrl+C)")
-    except Exception as e:
-        logger.critical(f"Необработанное исключение: {e}", exc_info=True)
+    except Exception:
+        logger.critical("Необработанное исключение", exc_info=True)

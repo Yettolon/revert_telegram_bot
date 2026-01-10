@@ -4,8 +4,9 @@ from aiogram import Router
 from aiogram.types import FSInputFile, Message
 
 from src.bot.keyboards.admin import get_admin_panel_keyboard
-from src.bot.keyboards.main import get_admin_menu_keyboard
+from src.bot.keyboards.main import get_admin_menu_keyboard, get_main_menu_keyboard
 from src.bot.permissions import admin_only
+from src.config import settings
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -31,7 +32,10 @@ async def back_to_main_menu_handler(message: Message):
     """Возврат в главное меню."""
     welcome_text = "👋 Welcome to the Main Menu!\n"
 
-    keyboard = get_admin_menu_keyboard()
+    if message.from_user.id in settings.ADMIN_IDS:
+        keyboard = get_admin_menu_keyboard()
+    else:
+        keyboard = get_main_menu_keyboard()
 
     await message.answer(
         welcome_text,

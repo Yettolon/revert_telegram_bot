@@ -230,7 +230,7 @@ async def enter_position_id(
     token_1 = tokens[0] if len(tokens) > 0 else {}
     token_2 = tokens[1] if len(tokens) > 1 else {}
     owner = data_resp.get("owner")
-    in_range = result["data"].get("in_range", False)
+    in_range = data_resp.get("in_range", False)
 
     if position:
         if user not in position.users:
@@ -243,8 +243,8 @@ async def enter_position_id(
             f"✅ New position added!\n"
             f"{status}\n"
             f"Tokens: {position.token_1_symbol}/{position.token_2_symbol}\n"
-            f"Exchange: {exchange.value}\n"
-            f"Network: {network.value}\n"
+            f"Exchange: {exchange}\n"
+            f"Network: {network}\n"
             f"NFT ID: {nft_id}\n"
             f"Current price: {position.current_price}\n"
             f"Min price: {position.min_price}\n"
@@ -279,8 +279,8 @@ async def enter_position_id(
             f"✅ New position added!\n"
             f"{status}\n"
             f"Tokens: {new_position.token_1_symbol}/{new_position.token_2_symbol}\n"
-            f"Exchange: {exchange.value}\n"
-            f"Network: {network.value}\n"
+            f"Exchange: {exchange}\n"
+            f"Network: {network}\n"
             f"NFT ID: {nft_id}\n"
             f"Current price: {new_position.current_price}\n"
             f"Min price: {new_position.min_price}\n"

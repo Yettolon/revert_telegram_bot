@@ -2,6 +2,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+import uvloop
 from sqlalchemy import and_, select
 from sqlalchemy.orm import selectinload
 
@@ -15,23 +16,34 @@ logger = setup_logger(__name__)
 
 @celery_app.task(name="src.tasks.positions.check_all_positions")
 def check_all_positions():
-    """
-    Периодическая задача для проверки всех позиций.
-    Запускается по расписанию через Celery Beat.
-    """
-    logger.info("Начинаем проверку всех позиций")
-
-    loop = asyncio.get_event_loop()
-    if loop.is_closed():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    logger.info("Start checking all positions")
 
     try:
-        loop.run_until_complete(_check_all_positions())
-    finally:
-        pass
+        # Устанавливаем uvloop как event loop policy
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        # Создаем и запускаем новый event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(_check_all_positions())
+        finally:
+            # Закрываем все соединения перед закрытием loop
+            loop.run_until_complete(_cleanup_db())
+            loop.close()
+    except Exception:
+        logger.exception("Ошибка при проверке позиций")
+        raise
 
-    logger.info("Проверка всех позиций завершена")
+    logger.info("Cheking all positions completed")
+
+
+async def _cleanup_db():
+    """Закрывает все соединения с БД."""
+    from src.database import session as db_session
+
+    if db_session.engine is not None:
+        await db_session.engine.dispose()
+        logger.info("Database connections closed")
 
 
 async def _check_all_positions():
@@ -232,30 +244,21 @@ async def fetch_position_data(url: str) -> Optional[Dict[str, Any]]:
 
 
 @celery_app.task(name="src.tasks.positions.notify_users_position_changed")
-def notify_users_position_changed(
-    user_telegram_ids: List[int], notification_data: Dict[str, Any]
-):
-    """
-    Отправляет уведомления пользователям об изменении статуса позиции.
-
-    Args:
-        user_telegram_ids: Список Telegram ID активных пользователей
-        notification_data: Данные для уведомления (position_id, статусы, цены и т.д.)
-    """
-    logger.info(
-        f"Отправка уведомлений о позиции {notification_data.get('position_id')} "
-        f"для {len(user_telegram_ids)} активных подписчиков"
-    )
-
-    loop = asyncio.get_event_loop()
-    if loop.is_closed():
+def notify_users_position_changed(user_telegram_ids, notification_data):
+    """Отправляет уведомления пользователям об изменении позиции."""
+    try:
+        # Устанавливаем uvloop как event loop policy
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        # Создаем и запускаем новый event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-
-    try:
-        loop.run_until_complete(_notify_users(user_telegram_ids, notification_data))
-    finally:
-        pass
+        try:
+            loop.run_until_complete(_notify_users(user_telegram_ids, notification_data))
+        finally:
+            loop.close()
+    except Exception:
+        logger.exception("Ошибка при отправке уведомлений")
+        raise
 
 
 async def _notify_users(
