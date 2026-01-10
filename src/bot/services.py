@@ -118,8 +118,8 @@ async def render_position_detail(
         f"Exchange: {position.exchange.value}\n"
         f"Network: {position.network.value}\n"
         f"NFT ID: {position.nft_id}\n"
-        f"Current price: {position.current_price}\n"
-        f"Min price: {position.min_price}\n"
-        f"Max price: {position.max_price}\n",
+        f"Current price: {position.current_price:.6f}\n"
+        f"Min price: {position.min_price:.6f}\n"
+        f"Max price: {position.max_price:.6f}\n",
         reply_markup=builder.as_markup(),
     )
