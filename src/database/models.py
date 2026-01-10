@@ -72,6 +72,13 @@ class User(Base):
         primary_key=True, autoincrement=True, comment="Внутренний ID пользователя"
     )
 
+    is_blocked: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
     # Telegram данные
     telegram_id: Mapped[int] = mapped_column(
         BigInteger,

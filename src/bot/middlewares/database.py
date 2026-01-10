@@ -177,6 +177,9 @@ class UserSessionMiddleware(BaseMiddleware):
                 )
                 user = result.scalar_one()
 
+                if user.is_blocked:
+                    return
+
                 data["user"] = user
             else:
                 logger.warning("event_from_user отсутствует в контексте")
