@@ -246,9 +246,9 @@ async def enter_position_id(
             f"Exchange: {exchange}\n"
             f"Network: {network}\n"
             f"NFT ID: {nft_id}\n"
-            f"Current price: {position.current_price}\n"
-            f"Min price: {position.min_price}\n"
-            f"Max price: {position.max_price}\n"
+            f"Current price: {position.current_price:.6f}\n"
+            f"Min price: {position.min_price:.6f}\n"
+            f"Max price: {position.max_price:.6f}\n"
         )
     else:
         new_position = Position(
@@ -282,9 +282,9 @@ async def enter_position_id(
             f"Exchange: {exchange}\n"
             f"Network: {network}\n"
             f"NFT ID: {nft_id}\n"
-            f"Current price: {new_position.current_price}\n"
-            f"Min price: {new_position.min_price}\n"
-            f"Max price: {new_position.max_price}\n"
+            f"Current price: {new_position.current_price:.6f}\n"
+            f"Min price: {new_position.min_price:.6f}\n"
+            f"Max price: {new_position.max_price:.6f}\n"
         )
 
     await state.clear()
@@ -373,9 +373,9 @@ async def add_position_by_url(
             f"Exchange: {exchange.value}\n"
             f"Network: {network.value}\n"
             f"NFT ID: {nft_id}\n"
-            f"Current price: {position.current_price}\n"
-            f"Min price: {position.min_price}\n"
-            f"Max price: {position.max_price}\n"
+            f"Current price: {position.current_price:.6f}\n"
+            f"Min price: {position.min_price:.6f}\n"
+            f"Max price: {position.max_price:.6f}\n"
         )
     else:
         # Если позиции нет — создаем новую и добавляем пользователя
@@ -410,9 +410,9 @@ async def add_position_by_url(
             f"Exchange: {exchange.value}\n"
             f"Network: {network.value}\n"
             f"NFT ID: {nft_id}\n"
-            f"Current price: {new_position.current_price}\n"
-            f"Min price: {new_position.min_price}\n"
-            f"Max price: {new_position.max_price}\n"
+            f"Current price: {new_position.current_price:.6f}\n"
+            f"Min price: {new_position.min_price:.6f}\n"
+            f"Max price: {new_position.max_price:.6f}\n"
         )
 
     await state.clear()
