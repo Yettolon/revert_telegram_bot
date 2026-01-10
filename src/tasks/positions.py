@@ -3,11 +3,14 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 import uvloop
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import and_, select
 from sqlalchemy.orm import selectinload
 
+from src.bot.tools import build_revert_position_url, parse_enum
 from src.celery import celery_app
 from src.config import settings
+from src.database.enums import ExchangeEnum, NetworkEnum
 from src.database.models import Position, User, user_positions
 from src.utils.logger import setup_logger
 
@@ -329,7 +332,26 @@ async def _notify_users(
         f"{price_info}"
     )
 
-    # Отправляем уведомления
+    exchange_enum = parse_enum(ExchangeEnum, exchange)
+    network_enum = parse_enum(NetworkEnum, network)
+
+    revert_url = build_revert_position_url(
+        exchange=exchange_enum,
+        network=network_enum,
+        nft_id=nft_id,
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔗 View on Revert Finance",
+                    url=revert_url,
+                )
+            ]
+        ]
+    )
+
     bot = Bot(
         token=settings.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
@@ -339,11 +361,13 @@ async def _notify_users(
         success_count = 0
         for telegram_id in user_telegram_ids:
             try:
-                await bot.send_message(telegram_id, message)
+                await bot.send_message(
+                    telegram_id,
+                    message,
+                    reply_markup=keyboard,
+                )
                 success_count += 1
                 logger.info(f"Уведомление отправлено пользователю {telegram_id}")
-                # Небольшая задержка между отправками
-                await asyncio.sleep(0.05)
             except Exception as e:
                 logger.error(
                     f"Ошибка отправки уведомления пользователю {telegram_id}: {e}"

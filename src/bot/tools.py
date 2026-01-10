@@ -60,3 +60,10 @@ async def get_position_active_for_user(
         )
     )
     return result.scalar_one_or_none() is True
+
+
+def parse_enum(enum_cls, value):
+    try:
+        return enum_cls(value)
+    except ValueError:
+        return None
