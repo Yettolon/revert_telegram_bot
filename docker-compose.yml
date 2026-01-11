@@ -22,6 +22,7 @@ services:
     networks:
       - bot_network
     restart: unless-stopped
+    mem_limit: 200m
 
   # Redis
   redis:
@@ -37,6 +38,7 @@ services:
     networks:
       - bot_network
     restart: unless-stopped
+    mem_limit: 60m
 
   # Telegram Bot
   bot:
@@ -60,6 +62,7 @@ services:
     networks:
       - bot_network
     restart: unless-stopped
+    mem_limit: 180m
 
   # Celery Worker
   celery_worker:
@@ -67,7 +70,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: revert_bot_celery_worker
-    command: uv run celery -A src.celery worker -l info
+    command: uv run celery -A src.celery worker -l info --concurrency=1
     env_file:
       - .env
     environment:
@@ -83,6 +86,7 @@ services:
     networks:
       - bot_network
     restart: unless-stopped
+    mem_limit: 220m
 
   # Celery Beat
   celery_beat:
@@ -106,6 +110,7 @@ services:
     networks:
       - bot_network
     restart: unless-stopped
+    mem_limit: 120m
 
 networks:
   bot_network:
