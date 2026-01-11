@@ -117,8 +117,8 @@ async def render_position_detail(
         f"{status_emoji} <b>{status_text}</b>\n"
         f"Exchange: {position.exchange.value}\n"
         f"Network: {position.network.value}\n"
-        f"NFT ID: {position.nft_id}\n"
-        f"Current price: {position.current_price:.6f}\n"
+        f"NFT ID: {position.nft_id}\n\n"
+        f"💰 Current price: {position.current_price:.6f}\n"
         f"Min price: {position.min_price:.6f}\n"
         f"Max price: {position.max_price:.6f}\n",
         reply_markup=builder.as_markup(),

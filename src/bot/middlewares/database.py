@@ -20,7 +20,6 @@ class DatabaseMiddleware(BaseMiddleware):
     Example:
         # В handler
         async def start_handler(message: Message, session: AsyncSession):
-            user_repo = UserRepository(session)
             user = await user_repo.get_by_telegram_id(message.from_user.id)
     """
 

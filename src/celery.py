@@ -8,13 +8,17 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
 )
 
+# Автоматическое обнаружение тасок
 celery_app.autodiscover_tasks(["src.tasks"])
 
 celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    task_track_started=True,
 )
-
 
 celery_app.conf.beat_schedule = {
     "check-positions-every-minute": {

@@ -276,7 +276,6 @@ async def _notify_users(
     new_status = notification_data.get("new_status")
     old_status = notification_data.get("old_status")
     current_price = notification_data.get("current_price")
-    old_price = notification_data.get("old_price")
     min_price = notification_data.get("min_price")
     max_price = notification_data.get("max_price")
     token_1 = notification_data.get("token_1_symbol", "?")
@@ -311,10 +310,6 @@ async def _notify_users(
     price_info = ""
     if current_price is not None:
         price_info += f"\n\n💰 Current price: <code>{current_price:.6f}</code>"
-        if old_price and old_price != current_price:
-            change = ((current_price - old_price) / old_price) * 100
-            change_emoji = "📈" if change > 0 else "📉"
-            price_info += f"\n{change_emoji} Change: {change:+.2f}%"
 
     if min_price is not None and max_price is not None:
         price_info += f"\n\n📊 Price range:"

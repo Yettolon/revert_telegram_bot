@@ -1,12 +1,19 @@
 from pathlib import Path
 
 from aiogram import Router
+from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, Message
 
-from src.bot.keyboards.admin import get_admin_panel_keyboard
+from src.bot.keyboards.admin import (
+    get_admin_panel_keyboard,
+    get_broadcast_confirm_keyboard,
+    get_cancel_keyboard,
+)
 from src.bot.keyboards.main import get_admin_menu_keyboard, get_main_menu_keyboard
 from src.bot.permissions import admin_only
+from src.bot.states.admin import BroadcastStates
 from src.config import settings
+from src.tasks.broadcast import send_broadcast_task
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -93,5 +100,157 @@ async def clear_logs_handler(message: Message):
     await message.answer(
         f"🧹 Logs cleared.\nFiles cleaned: <b>{cleared}</b>",
         parse_mode="HTML",
+        reply_markup=get_admin_panel_keyboard(),
+    )
+
+
+@router.message(lambda message: message.text == "📢 Broadcast Message")
+@admin_only
+async def start_broadcast_handler(message: Message, state: FSMContext):
+    """Начинаем процесс рассылки."""
+    await state.set_state(BroadcastStates.waiting_for_message)
+    await message.answer(
+        "📝 Send me the message you want to broadcast.\n"
+        "You can send text, photo, video, or document.\n\n"
+        "Press 'Cancel' to abort.",
+        reply_markup=get_cancel_keyboard(),
+    )
+
+
+@router.message(
+    lambda message: message.text == "❌ Cancel", BroadcastStates.waiting_for_message
+)
+@admin_only
+async def cancel_broadcast_handler(message: Message, state: FSMContext):
+    """Отмена рассылки."""
+    await state.clear()
+    await message.answer(
+        "❌ Broadcast cancelled.",
+        reply_markup=get_admin_panel_keyboard(),
+    )
+
+
+@router.message(BroadcastStates.waiting_for_message)
+@admin_only
+async def receive_broadcast_message(message: Message, state: FSMContext):
+    """Получаем сообщение для рассылки и показываем превью."""
+    # Сохраняем данные сообщения
+    message_data = {
+        "text": message.text or message.caption,
+        "entities": None,
+    }
+
+    # Определяем тип контента
+    if message.photo:
+        message_data["type"] = "photo"
+        message_data["file_id"] = message.photo[-1].file_id
+        if message.caption_entities:
+            message_data["entities"] = [
+                {"type": e.type, "offset": e.offset, "length": e.length, "url": e.url}
+                for e in message.caption_entities
+            ]
+    elif message.video:
+        message_data["type"] = "video"
+        message_data["file_id"] = message.video.file_id
+        if message.caption_entities:
+            message_data["entities"] = [
+                {"type": e.type, "offset": e.offset, "length": e.length, "url": e.url}
+                for e in message.caption_entities
+            ]
+    elif message.document:
+        message_data["type"] = "document"
+        message_data["file_id"] = message.document.file_id
+        if message.caption_entities:
+            message_data["entities"] = [
+                {"type": e.type, "offset": e.offset, "length": e.length, "url": e.url}
+                for e in message.caption_entities
+            ]
+    elif message.text:
+        message_data["type"] = "text"
+        if message.entities:
+            message_data["entities"] = [
+                {"type": e.type, "offset": e.offset, "length": e.length, "url": e.url}
+                for e in message.entities
+            ]
+    else:
+        await message.answer(
+            "❌ Unsupported message type. Please send text, photo, video, or document.",
+            reply_markup=get_cancel_keyboard(),
+        )
+        return
+
+    # Сохраняем в state
+    await state.update_data(message_data=message_data)
+    await state.set_state(BroadcastStates.waiting_for_confirmation)
+
+    # Показываем превью
+    await message.answer(
+        "📋 <b>Preview of your broadcast message:</b>", parse_mode="HTML"
+    )
+
+    # Отправляем копию сообщения
+    if message_data["type"] == "photo":
+        await message.answer_photo(
+            photo=message_data["file_id"],
+            caption=message_data["text"],
+        )
+    elif message_data["type"] == "video":
+        await message.answer_video(
+            video=message_data["file_id"],
+            caption=message_data["text"],
+        )
+    elif message_data["type"] == "document":
+        await message.answer_document(
+            document=message_data["file_id"],
+            caption=message_data["text"],
+        )
+    else:
+        await message.answer(message_data["text"])
+
+    await message.answer(
+        "❓ Send this message to all users?",
+        reply_markup=get_broadcast_confirm_keyboard(),
+    )
+
+
+@router.message(
+    lambda message: message.text == "✅ Send", BroadcastStates.waiting_for_confirmation
+)
+@admin_only
+async def confirm_broadcast_handler(message: Message, state: FSMContext):
+    """Подтверждаем и запускаем рассылку."""
+    data = await state.get_data()
+    message_data = data.get("message_data")
+
+    if not message_data:
+        await message.answer("❌ Message data not found. Please try again.")
+        await state.clear()
+        return
+
+    # Запускаем Celery таску
+    task = send_broadcast_task.delay(message_data)
+
+    await state.clear()
+    await message.answer(
+        f"✅ Broadcast started!\n"
+        f"Task ID: <code>{task.id}</code>\n\n"
+        f"Messages will be sent to all users in background.",
+        parse_mode="HTML",
+        reply_markup=get_admin_panel_keyboard(),
+    )
+
+    logger.info(f"Broadcast task started: {task.id}")
+
+
+@router.message(
+    lambda message: message.text == "❌ Cancel",
+    BroadcastStates.waiting_for_confirmation,
+)
+@admin_only
+async def cancel_confirmation_handler(message: Message, state: FSMContext):
+    """Отмена на этапе подтверждения."""
+    await state.clear()
+    await message.answer(
+        "❌ Broadcast cancelled.",
         reply_markup=get_admin_panel_keyboard(),
     )

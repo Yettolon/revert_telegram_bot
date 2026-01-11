@@ -245,8 +245,8 @@ async def enter_position_id(
             f"Tokens: {position.token_1_symbol}/{position.token_2_symbol}\n"
             f"Exchange: {exchange}\n"
             f"Network: {network}\n"
-            f"NFT ID: {nft_id}\n"
-            f"Current price: {position.current_price:.6f}\n"
+            f"NFT ID: {nft_id}\n\n"
+            f"💰 Current price: {position.current_price:.6f}\n"
             f"Min price: {position.min_price:.6f}\n"
             f"Max price: {position.max_price:.6f}\n"
         )
@@ -281,8 +281,8 @@ async def enter_position_id(
             f"Tokens: {new_position.token_1_symbol}/{new_position.token_2_symbol}\n"
             f"Exchange: {exchange}\n"
             f"Network: {network}\n"
-            f"NFT ID: {nft_id}\n"
-            f"Current price: {new_position.current_price:.6f}\n"
+            f"NFT ID: {nft_id}\n\n"
+            f"💰 Current price: {new_position.current_price:.6f}\n"
             f"Min price: {new_position.min_price:.6f}\n"
             f"Max price: {new_position.max_price:.6f}\n"
         )
@@ -372,8 +372,8 @@ async def add_position_by_url(
             f"Tokens: {position.token_1_symbol}/{position.token_2_symbol}\n"
             f"Exchange: {exchange.value}\n"
             f"Network: {network.value}\n"
-            f"NFT ID: {nft_id}\n"
-            f"Current price: {position.current_price:.6f}\n"
+            f"NFT ID: {nft_id}\n\n"
+            f"💰 Current price: {position.current_price:.6f}\n"
             f"Min price: {position.min_price:.6f}\n"
             f"Max price: {position.max_price:.6f}\n"
         )
@@ -409,8 +409,8 @@ async def add_position_by_url(
             f"Tokens: {new_position.token_1_symbol}/{new_position.token_2_symbol}\n"
             f"Exchange: {exchange.value}\n"
             f"Network: {network.value}\n"
-            f"NFT ID: {nft_id}\n"
-            f"Current price: {new_position.current_price:.6f}\n"
+            f"NFT ID: {nft_id}\n\n"
+            f"💰 Current price: {new_position.current_price:.6f}\n"
             f"Min price: {new_position.min_price:.6f}\n"
             f"Max price: {new_position.max_price:.6f}\n"
         )
