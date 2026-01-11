@@ -37,7 +37,10 @@ async def admin_panel_handler(message: Message):
 @router.message(lambda message: message.text == "⬅️ Main Menu")
 async def back_to_main_menu_handler(message: Message):
     """Возврат в главное меню."""
-    welcome_text = "👋 Welcome to the Main Menu!\n"
+    welcome_text = (
+        "🏠 You are back at the Main Menu.\n\n"
+        "Use the buttons below to view your positions or adjust your settings."
+    )
 
     if message.from_user.id in settings.ADMIN_IDS:
         keyboard = get_admin_menu_keyboard()

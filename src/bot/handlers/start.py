@@ -19,10 +19,12 @@ async def start_handler(message: Message, user: User) -> None:
 
     welcome_text = (
         f"👋 Hi, <b>{user.username}</b>!\n\n"
-        f"Welcome to the Revert Finance Bot! 🚀\n\n"
-        f"This bot helps you track your positions in DeFi.\n\n"
-        f"<b>Available commands:</b>\n"
-        f"🔹 /start - Main Menu\n"
+        f"Welcome to <b>Revert Finance Watcher</b>! 🚀\n\n"
+        f"This bot helps you track your DeFi positions and get instant alerts when your pools move in or out of range.\n\n"
+        f"<b>What you can do:</b>\n"
+        f"📊 <b>My positions</b> - view your current pools and their status\n"
+        f"⚙️ <b>Settings</b> - manage your notifications and profile preferences\n\n"
+        f"Use the buttons below to get started!"
     )
 
     if message.from_user.id in settings.ADMIN_IDS:
