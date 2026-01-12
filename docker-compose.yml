@@ -114,7 +114,7 @@ services:
     networks:
       - bot_network
     restart: unless-stopped
-    mem_limit: 120m
+    mem_limit: 300m
 
 networks:
   bot_network:
