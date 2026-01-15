@@ -1,5 +1,5 @@
 import aiohttp
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -11,10 +11,11 @@ from src.bot.keyboards.positions import (
     get_add_position_method_keyboard,
     get_exchange_keyboard,
     get_network_keyboard,
+    get_upgrade_subscription_keyboard,
 )
 from src.bot.services import render_position_detail, show_positions
 from src.bot.states.positions import AddPositionStates
-from src.bot.tools import parse_revert_position_url
+from src.bot.tools import can_user_add_position, parse_revert_position_url
 from src.config import settings
 from src.database.models import Position, User, user_positions
 from src.utils.logger import setup_logger
@@ -136,9 +137,29 @@ async def delete_position(callback: CallbackQuery, session: AsyncSession, user: 
     await callback.answer()
 
 
-@router.callback_query(lambda c: c.data == "positions_add")
-async def add_position_callback(callback: CallbackQuery):
-    await callback.message.answer(
+@router.callback_query(F.data == "positions_add")
+async def add_position_callback(
+    callback: CallbackQuery, session: AsyncSession, user: User
+):
+    """
+    Handle add position button click.
+    Checks subscription limits before allowing to add.
+    """
+    # Check if user can add more positions
+    can_add, error_message = await can_user_add_position(session, user)
+
+    if not can_add:
+        # User reached their limit
+        await callback.message.edit_text(
+            error_message,
+            reply_markup=get_upgrade_subscription_keyboard(),
+            parse_mode="HTML",
+        )
+        await callback.answer("Position limit reached!", show_alert=False)
+        return
+
+    # User can add positions
+    await callback.message.edit_text(
         "Select a method to add a position:",
         reply_markup=get_add_position_method_keyboard(),
     )

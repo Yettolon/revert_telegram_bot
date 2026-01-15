@@ -10,7 +10,10 @@ def get_main_menu_keyboard() -> ReplyKeyboardMarkup:
             [
                 KeyboardButton(text="📊 My positions"),
                 KeyboardButton(text="⚙️ Settings"),
-            ]
+            ],
+            [
+                KeyboardButton(text="💎 Subscription"),
+            ],
         ],
         resize_keyboard=True,  # уменьшает кнопки под размер экрана
         one_time_keyboard=False,  # клавиатура остаётся видимой
@@ -24,6 +27,9 @@ def get_admin_menu_keyboard() -> ReplyKeyboardMarkup:
             [
                 KeyboardButton(text="📊 My positions"),
                 KeyboardButton(text="⚙️ Settings"),
+            ],
+            [
+                KeyboardButton(text="💎 Subscription"),
             ],
             [KeyboardButton(text="🛠 Admin Panel")],
         ],
