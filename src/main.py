@@ -7,7 +7,7 @@ from aiogram.enums import ParseMode
 
 from src.bot.handlers import admin, positions
 from src.bot.handlers import settings as settings_router
-from src.bot.handlers import start
+from src.bot.handlers import start, subscription
 from src.bot.middlewares.database import UserSessionMiddleware
 from src.config import settings
 from src.database.session import close_db, init_db
@@ -75,6 +75,7 @@ def register_handlers(dp: Dispatcher) -> None:
     dp.include_router(positions.router)
     dp.include_router(settings_router.router)
     dp.include_router(admin.router)
+    dp.include_router(subscription.router)
 
     logger.info("Обработчики зарегистрированы")
 

@@ -81,3 +81,20 @@ def get_network_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="❌ Отмена", callback_data="add_position_cancel")
     )
     return builder.as_markup()
+
+
+def get_upgrade_subscription_keyboard() -> InlineKeyboardMarkup:
+    """
+    Keyboard for upgrading subscription when limit is reached.
+    """
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="💎 Upgrade Subscription", callback_data="subscription_menu"
+                )
+            ],
+            [InlineKeyboardButton(text="« Back", callback_data="positions_back")],
+        ]
+    )
+    return keyboard

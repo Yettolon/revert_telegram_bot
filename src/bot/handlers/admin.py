@@ -13,6 +13,7 @@ from src.bot.keyboards.main import get_admin_menu_keyboard, get_main_menu_keyboa
 from src.bot.permissions import admin_only
 from src.bot.states.admin import BroadcastStates
 from src.config import settings
+from src.services.subscription import get_subscription_stats
 from src.tasks.broadcast import send_broadcast_task
 from src.utils.logger import setup_logger
 
@@ -256,4 +257,18 @@ async def cancel_confirmation_handler(message: Message, state: FSMContext):
     await message.answer(
         "❌ Broadcast cancelled.",
         reply_markup=get_admin_panel_keyboard(),
+    )
+
+
+@router.message(lambda message: message.text == "Get Subscription Statistics")
+@admin_only
+async def get_subsctiption_stats(message: Message, session):
+    stats = await get_subscription_stats(session)
+    await message.answer(
+        f"📊 Subscription Statistics:\n"
+        f"Free: {stats['free']}\n"
+        f"Basic: {stats['basic']}\n"
+        f"Pro: {stats['pro']}\n"
+        f"Active Paid: {stats['active_paid']}\n"
+        f"Total: {stats['total']}"
     )

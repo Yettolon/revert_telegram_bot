@@ -8,6 +8,7 @@ def get_admin_panel_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="📁 Download Logs")],
             [KeyboardButton(text="🗑 Clear Logs")],
             [KeyboardButton(text="📢 Broadcast Message")],
+            [KeyboardButton(text="Get Subscription Statistics")],
             [KeyboardButton(text="⬅️ Main Menu")],
         ],
         resize_keyboard=True,
