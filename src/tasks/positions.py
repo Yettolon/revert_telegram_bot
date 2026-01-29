@@ -165,6 +165,7 @@ async def check_single_position(position: Position, session):
     new_current_price = position_data.get("pool_price")
     new_min_price = position_data.get("price_lower")
     new_max_price = position_data.get("price_upper")
+    new_total_fees_usd = position_data.get("fees_value")
 
     logger.info(
         f"Новые данные из API: status={new_status}, "
@@ -183,6 +184,8 @@ async def check_single_position(position: Position, session):
         position.min_price = new_min_price
     if new_max_price is not None:
         position.max_price = new_max_price
+    if new_total_fees_usd is not None:
+        position.total_fees_usd = float(new_total_fees_usd)
 
     await session.flush()
     await session.refresh(position)
@@ -226,6 +229,7 @@ async def check_single_position(position: Position, session):
                 "old_price": old_current_price,
                 "min_price": new_min_price,
                 "max_price": new_max_price,
+                "total_fees": position.total_fees_usd,
             }
 
             notify_users_position_changed.delay(active_user_ids, notification_data)
@@ -273,6 +277,11 @@ async def fetch_position_data(url: str) -> Optional[Dict[str, Any]]:
                     "price_upper": (
                         float(data.get("price_upper"))
                         if data.get("price_upper")
+                        else None
+                    ),
+                    "fees_value": (
+                        float(data.get("fees_value"))
+                        if data.get("fees_value")
                         else None
                     ),
                 }
@@ -423,6 +432,7 @@ async def _notify_users(
     exchange = notification_data.get("exchange")
     network = notification_data.get("network")
     nft_id = notification_data.get("nft_id")
+    total_fees = notification_data.get("total_fees")
 
     # Формируем сообщение
     status_emoji = "🟢" if new_status else "🔴"
@@ -465,6 +475,7 @@ async def _notify_users(
         f"Status: <b>{status_text}</b>"
         f"{boundary_info}"
         f"{price_info}"
+        f"\nTotal fees: <code>{total_fees:.6f}</code>"
     )
 
     exchange_enum = parse_enum(ExchangeEnum, exchange)

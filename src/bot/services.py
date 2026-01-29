@@ -120,6 +120,7 @@ async def render_position_detail(
         f"NFT ID: {position.nft_id}\n\n"
         f"💰 Current price: {position.current_price:.6f}\n"
         f"Min price: {position.min_price:.6f}\n"
-        f"Max price: {position.max_price:.6f}\n",
+        f"Max price: {position.max_price:.6f}\n"
+        f"Total fees: {position.total_fees_usd:.6f}\n",
         reply_markup=builder.as_markup(),
     )

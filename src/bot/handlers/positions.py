@@ -252,6 +252,7 @@ async def enter_position_id(
     token_2 = tokens[1] if len(tokens) > 1 else {}
     owner = data_resp.get("owner")
     in_range = data_resp.get("in_range", False)
+    total_fees = result["data"].get("fees_value", 0)
 
     if position:
         if user not in position.users:
@@ -270,6 +271,7 @@ async def enter_position_id(
             f"💰 Current price: {position.current_price:.6f}\n"
             f"Min price: {position.min_price:.6f}\n"
             f"Max price: {position.max_price:.6f}\n"
+            f"Total fees: {position.total_fees_usd:.6f}\n"
         )
     else:
         new_position = Position(
@@ -286,6 +288,7 @@ async def enter_position_id(
             current_price=float(data_resp.get("pool_price")),
             min_price=float(data_resp.get("price_lower")),
             max_price=float(data_resp.get("price_upper")),
+            total_fees_usd=float(total_fees),
             users=[user],
         )
         session.add(new_position)
@@ -306,6 +309,7 @@ async def enter_position_id(
             f"💰 Current price: {new_position.current_price:.6f}\n"
             f"Min price: {new_position.min_price:.6f}\n"
             f"Max price: {new_position.max_price:.6f}\n"
+            f"Total fees: {new_position.total_fees_usd:.6f}\n"
         )
 
     await state.clear()
@@ -366,6 +370,7 @@ async def add_position_by_url(
     token_2 = tokens[1] if len(tokens) > 1 else {}
     owner = data_resp.get("owner")
     in_range = result["data"].get("in_range", False)
+    total_fees = result["data"].get("fees_value", 0)
 
     # Проверяем, есть ли уже такая позиция в базе
     result = await session.execute(
@@ -397,6 +402,7 @@ async def add_position_by_url(
             f"💰 Current price: {position.current_price:.6f}\n"
             f"Min price: {position.min_price:.6f}\n"
             f"Max price: {position.max_price:.6f}\n"
+            f"Total fees: {position.total_fees_usd:.6f}\n"
         )
     else:
         # Если позиции нет — создаем новую и добавляем пользователя
@@ -414,6 +420,7 @@ async def add_position_by_url(
             current_price=float(data_resp.get("pool_price")),
             min_price=float(data_resp.get("price_lower")),
             max_price=float(data_resp.get("price_upper")),
+            total_fees_usd=float(total_fees),
             users=[user],
         )
         session.add(new_position)
@@ -434,6 +441,7 @@ async def add_position_by_url(
             f"💰 Current price: {new_position.current_price:.6f}\n"
             f"Min price: {new_position.min_price:.6f}\n"
             f"Max price: {new_position.max_price:.6f}\n"
+            f"Total fees: {new_position.total_fees_usd:.6f}\n"
         )
 
     await state.clear()

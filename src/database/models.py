@@ -277,6 +277,11 @@ class Position(Base):
         comment="Maximum price",
     )
 
+    total_fees_usd: Mapped[Optional[float]] = mapped_column(
+        nullable=True,
+        comment="Total fees value in USD (from Revert fees_value)",
+    )
+
     # relationships
     users: Mapped[list["User"]] = relationship(
         "User",
