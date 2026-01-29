@@ -117,6 +117,50 @@ async def check_single_position(position: Position, session):
         logger.warning(f"Не удалось получить данные для позиции {position.id}")
         return
 
+    # Проверяем, закрыта ли позиция
+    is_exited = position_data.get("exited", False)
+
+    if is_exited:
+        logger.info(f"Позиция {position.id} закрыта (exited=true)")
+
+        # Получаем активных пользователей для уведомления
+        result = await session.execute(
+            select(User.telegram_id)
+            .select_from(user_positions)
+            .join(User, User.id == user_positions.c.user_id)
+            .where(
+                and_(
+                    user_positions.c.position_id == position.id,
+                    user_positions.c.is_active == True,  # noqa
+                )
+            )
+        )
+        active_user_ids = [row[0] for row in result.all()]
+
+        if active_user_ids:
+            logger.info(
+                f"Найдено {len(active_user_ids)} активных подписчиков для уведомления о закрытии позиции {position.id}"
+            )
+
+            # Формируем данные для уведомления о закрытии
+            notification_data = {
+                "position_id": position.id,
+                "exchange": position.exchange.value,
+                "network": position.network.value,
+                "nft_id": position.nft_id,
+                "token_1_symbol": position.token_1_symbol,
+                "token_2_symbol": position.token_2_symbol,
+                "is_closed": True,
+            }
+
+            notify_users_position_closed.delay(active_user_ids, notification_data)
+
+        # Удаляем позицию из базы
+        await session.delete(position)
+        await session.flush()
+        logger.info(f"Позиция {position.id} удалена из базы данных")
+        return
+
     new_status = position_data.get("in_range")
     new_current_price = position_data.get("pool_price")
     new_min_price = position_data.get("price_lower")
@@ -214,6 +258,7 @@ async def fetch_position_data(url: str) -> Optional[Dict[str, Any]]:
 
                 data = result["data"]
                 position_data = {
+                    "exited": bool(data.get("exited", False)),
                     "in_range": bool(data.get("in_range", False)),
                     "pool_price": (
                         float(data.get("pool_price"))
@@ -244,6 +289,101 @@ async def fetch_position_data(url: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Неожиданная ошибка при проверке {url}: {e}", exc_info=True)
         return None
+
+
+@celery_app.task(name="src.tasks.positions.notify_users_position_closed")
+def notify_users_position_closed(user_telegram_ids, notification_data):
+    """Отправляет уведомления пользователям о закрытии позиции."""
+    try:
+        # Устанавливаем uvloop как event loop policy
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        # Создаем и запускаем новый event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(
+                _notify_users_closed(user_telegram_ids, notification_data)
+            )
+        finally:
+            loop.close()
+    except Exception:
+        logger.exception("Ошибка при отправке уведомлений о закрытии")
+        raise
+
+
+async def _notify_users_closed(
+    user_telegram_ids: List[int], notification_data: Dict[str, Any]
+):
+    """Асинхронная отправка уведомлений о закрытии позиции."""
+    from aiogram import Bot
+    from aiogram.client.default import DefaultBotProperties
+    from aiogram.enums import ParseMode
+
+    # Извлекаем данные
+    token_1 = notification_data.get("token_1_symbol", "?")
+    token_2 = notification_data.get("token_2_symbol", "?")
+    exchange = notification_data.get("exchange")
+    network = notification_data.get("network")
+    nft_id = notification_data.get("nft_id")
+
+    # Формируем сообщение
+    message = (
+        f"🔒 <b>Position closed!</b>\n\n"
+        f"<b>{token_1}/{token_2}</b>\n"
+        f"Exchange: {exchange}\n"
+        f"Network: {network}\n"
+        f"NFT ID: <code>{nft_id}</code>\n\n"
+        f"This position has been closed and removed from tracking."
+    )
+
+    exchange_enum = parse_enum(ExchangeEnum, exchange)
+    network_enum = parse_enum(NetworkEnum, network)
+
+    revert_url = build_revert_position_url(
+        exchange=exchange_enum,
+        network=network_enum,
+        nft_id=nft_id,
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔗 View on Revert Finance",
+                    url=revert_url,
+                )
+            ]
+        ]
+    )
+
+    bot = Bot(
+        token=settings.BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
+
+    try:
+        success_count = 0
+        for telegram_id in user_telegram_ids:
+            try:
+                await bot.send_message(
+                    telegram_id,
+                    message,
+                    reply_markup=keyboard,
+                )
+                success_count += 1
+                logger.info(
+                    f"Уведомление о закрытии отправлено пользователю {telegram_id}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Ошибка отправки уведомления о закрытии пользователю {telegram_id}: {e}"
+                )
+
+        logger.info(
+            f"Уведомления о закрытии отправлены: {success_count}/{len(user_telegram_ids)}"
+        )
+    finally:
+        await bot.session.close()
 
 
 @celery_app.task(name="src.tasks.positions.notify_users_position_changed")
