@@ -53,8 +53,6 @@ class Settings(BaseSettings):
     # Application
     DEBUG: bool = Field(default=False, description="Режим отладки")
 
-    REDIS_URL: str = Field(default="redis://redis:6379/0")
-
     @field_validator("ADMIN_IDS", mode="before")
     @classmethod
     def parse_admin_ids(cls, v: str | list[int]) -> list[int]:
