@@ -231,19 +231,16 @@ async def confirm_broadcast_handler(message: Message, state: FSMContext):
         await state.clear()
         return
 
-    # Запускаем Celery таску
-    task = send_broadcast_task.delay(message_data)
+    logger.info("Broadcast task started")
+
+    await send_broadcast_task(message_data)
 
     await state.clear()
     await message.answer(
-        f"✅ Broadcast started!\n"
-        f"Task ID: <code>{task.id}</code>\n\n"
-        f"Messages will be sent to all users in background.",
+        "✅ Broadcast started!\n" "Messages will be sent to all users in background.",
         parse_mode="HTML",
         reply_markup=get_admin_panel_keyboard(),
     )
-
-    logger.info(f"Broadcast task started: {task.id}")
 
 
 @router.message(

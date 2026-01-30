@@ -24,22 +24,6 @@ services:
     restart: unless-stopped
     mem_limit: 200m
 
-  # Redis
-  redis:
-    image: redis:7-alpine
-    container_name: revert_bot_redis
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - bot_network
-    restart: unless-stopped
-    mem_limit: 60m
-
   # Telegram Bot
   bot:
     build:
@@ -50,11 +34,8 @@ services:
       - .env
     environment:
       - DB_HOST=postgres
-      - REDIS_URL=redis://redis:6379/0
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     volumes:
       - .:/app
@@ -64,58 +45,28 @@ services:
     restart: unless-stopped
     mem_limit: 180m
 
-  # Celery Worker
-  celery_worker:
+
+  go_worker:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: revert_bot_celery_worker
-    command: uv run celery -A src.celery worker -l info --concurrency=1
+      dockerfile: Dockerfile.go
+    container_name: revert_bot_go_worker
     env_file:
       - .env
     environment:
       - DB_HOST=postgres
-      - REDIS_URL=redis://redis:6379/0
+      - LOGS_DIR=/app/logs
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     volumes:
-      - .:/app
+      - ./logs:/app/logs
     networks:
       - bot_network
     restart: unless-stopped
-    mem_limit: 220m
-
-  # Celery Beat
-  celery_beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: revert_bot_celery_beat
-    command: >
-      uv run celery -A src.celery beat
-      -l info
-      --pidfile=
-      --schedule=/tmp/celerybeat-schedule
-    env_file:
-      - .env
-    environment:
-      - DB_HOST=postgres
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - .:/app
-    networks:
-      - bot_network
-    restart: unless-stopped
-    mem_limit: 300m
-
+    mem_limit: 50m
+    command: ["./worker", "daemon"]
+  
 networks:
   bot_network:
     driver: bridge

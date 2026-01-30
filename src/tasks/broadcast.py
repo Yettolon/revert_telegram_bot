@@ -1,11 +1,9 @@
 import asyncio
 
-import uvloop
 from aiogram import Bot
 from aiogram.types import MessageEntity
 from sqlalchemy import select, update
 
-from src.celery import celery_app
 from src.config import settings
 from src.database.models import User
 from src.utils.logger import setup_logger
@@ -13,30 +11,15 @@ from src.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 
-@celery_app.task(name="src.tasks.broadcast.send_broadcast")
-def send_broadcast_task(message_data: dict) -> dict:
+async def send_broadcast_task(message_data: dict) -> dict:
     """
-    Celery таска для рассылки сообщений всем пользователям.
-
-    Рассылка идет только юзерам с:
-    - is_system_notifications_enabled = True
-    - is_blocked = False
-
-    Args:
-        message_data: Данные сообщения (type, text, file_id, entities)
-
-    Returns:
-        dict: Статистика рассылки (total, success, failed, blocked)
+    Асинхронная функция рассылки.
+    Вызывается из aiogram через await или asyncio.create_task().
     """
     try:
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(_send_broadcast(message_data))
-        finally:
-            loop.run_until_complete(_cleanup_db())
-            loop.close()
+        result = await _send_broadcast(message_data)
+        await _cleanup_db()
+        return result
     except Exception:
         logger.exception("Ошибка при выполнении broadcast таски")
         raise
@@ -58,17 +41,17 @@ async def _send_broadcast(message_data: dict) -> dict:
     # Инициализируем БД если нужно
     if db_session.async_session_maker is None:
         await db_session.init_db()
-        logger.info("База данных инициализирована в Celery worker")
+        logger.info("База данных инициализирована")
 
     bot = Bot(token=settings.BOT_TOKEN)
 
     try:
-        # Получаем пользователей с включенными уведомлениями и не заблокированных
+        # Получаем пользователей
         async with db_session.async_session_maker() as session:
             result = await session.execute(
                 select(User).where(
-                    User.is_system_notifications_enabled == True,
-                    User.is_blocked == False,
+                    User.is_system_notifications_enabled.is_(True),
+                    User.is_blocked.is_(False),
                 )
             )
             users = result.scalars().all()
@@ -78,9 +61,9 @@ async def _send_broadcast(message_data: dict) -> dict:
         failed = 0
         blocked = 0
 
-        logger.info(f"Starting broadcast to {total} users (with notifications enabled)")
+        logger.info(f"Starting broadcast to {total} users")
 
-        # Восстанавливаем entities если есть
+        # Восстанавливаем entities
         entities = None
         if message_data.get("entities"):
             entities = [
@@ -95,7 +78,6 @@ async def _send_broadcast(message_data: dict) -> dict:
 
         for user in users:
             try:
-                # Отправляем сообщение в зависимости от типа
                 if message_data["type"] == "photo":
                     await bot.send_photo(
                         chat_id=user.telegram_id,
@@ -117,7 +99,7 @@ async def _send_broadcast(message_data: dict) -> dict:
                         caption=message_data.get("text"),
                         caption_entities=entities,
                     )
-                else:  # text
+                else:
                     await bot.send_message(
                         chat_id=user.telegram_id,
                         text=message_data["text"],
@@ -125,15 +107,11 @@ async def _send_broadcast(message_data: dict) -> dict:
                     )
 
                 success += 1
-                logger.debug(f"Message sent to user {user.telegram_id}")
-
-                # Небольшая задержка, чтобы не словить флуд (20 msg/sec limit)
                 await asyncio.sleep(0.05)
 
             except Exception as e:
                 error_str = str(e).lower()
 
-                # Проверяем, заблокировал ли пользователь бота
                 if any(
                     phrase in error_str
                     for phrase in [
@@ -146,7 +124,6 @@ async def _send_broadcast(message_data: dict) -> dict:
                     blocked += 1
                     logger.warning(f"User {user.telegram_id} blocked the bot: {e}")
 
-                    # Помечаем юзера как заблокированного
                     async with db_session.async_session_maker() as session:
                         await session.execute(
                             update(User)
@@ -171,19 +148,5 @@ async def _send_broadcast(message_data: dict) -> dict:
         )
         return result
 
-    except Exception as e:
-        logger.error(f"Broadcast task failed: {e}")
-        raise
     finally:
         await bot.session.close()
-
-
-@celery_app.task(name="src.tasks.broadcast.get_broadcast_stats")
-def get_broadcast_stats_task(task_id: str) -> dict:
-    """Получить статистику по конкретной рассылке."""
-    result = celery_app.AsyncResult(task_id)
-    return {
-        "task_id": task_id,
-        "state": result.state,
-        "result": result.result if result.ready() else None,
-    }
