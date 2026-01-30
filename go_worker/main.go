@@ -95,11 +95,11 @@ func runDaemon() {
 
 func connectDB() *sql.DB {
 	dsn := fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		getEnv("DB_USER", "bot_user"),
-		getEnv("DB_PASSWORD", ""),
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		getEnv("DB_HOST", "localhost"),
 		getEnv("DB_PORT", "5432"),
+		getEnv("DB_USER", "bot_user"),
+		getEnv("DB_PASSWORD", ""),
 		getEnv("DB_NAME", "revert_bot"),
 	)
 
@@ -110,12 +110,9 @@ func connectDB() *sql.DB {
 
 	db.SetMaxOpenConns(5)
 	db.SetMaxIdleConns(2)
-	db.SetConnMaxLifetime(time.Hour)
+	db.SetConnMaxLifetime(30 * time.Minute)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := db.PingContext(ctx); err != nil {
+	if err := db.Ping(); err != nil {
 		log.Fatalf("Failed to ping DB: %v", err)
 	}
 
