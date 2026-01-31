@@ -11,7 +11,7 @@ RUN go mod download
 COPY go_worker/main.go ./
 
 # Собираем
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-w -s' -o worker main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags '-w -s' -o worker main.go
 
 # Stage 2: Runtime
 FROM alpine:latest
