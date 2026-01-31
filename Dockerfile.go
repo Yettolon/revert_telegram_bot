@@ -28,6 +28,8 @@ RUN addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser && \
     chown -R appuser:appuser /app
 
+RUN mkdir -p /app/logs && chown -R appuser:appuser /app/logs
+
 USER appuser
 
 # По умолчанию запускаем cron-loop
