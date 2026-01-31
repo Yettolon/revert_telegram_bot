@@ -336,7 +336,7 @@ func checkPositions() {
 		if oldInRange != data.Data.InRange {
 			log.Printf("🔔 Status changed: %v → %v", oldInRange, data.Data.InRange)
 			notifyStatusChange(db, id, exchange, network, nftID, token1, token2,
-				oldInRange, data.Data.InRange, poolPrice, priceLower, priceUpper)
+				oldInRange, data.Data.InRange, poolPrice, priceLower, priceUpper, feesValue)
 		}
 
 		time.Sleep(100 * time.Millisecond)
@@ -417,7 +417,7 @@ func handleClosedPosition(db *sql.DB, posID int, exchange, network, nftID string
 
 func notifyStatusChange(db *sql.DB, posID int, exchange, network, nftID string,
 	token1, token2 sql.NullString, oldStatus, newStatus bool,
-	currentPrice, minPrice, maxPrice *float64) {
+	currentPrice, minPrice, maxPrice, feesValue *float64, ) {
 
 	rows, err := db.Query(`
 		SELECT u.telegram_id
@@ -475,6 +475,12 @@ func notifyStatusChange(db *sql.DB, posID int, exchange, network, nftID string,
 		priceInfo += fmt.Sprintf(
 			"\n\n📊 Price range:\nMin: <code>%.6f</code>\nMax: <code>%.6f</code>",
 			*minPrice, *maxPrice,
+		)
+	}
+	if feesValue != nil {
+		priceInfo += fmt.Sprintf(
+			"\n\nTotal fees: <code>%.6f</code>",
+			*feesValue,
 		)
 	}
 
