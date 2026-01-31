@@ -252,7 +252,7 @@ async def enter_position_id(
     token_2 = tokens[1] if len(tokens) > 1 else {}
     owner = data_resp.get("owner")
     in_range = data_resp.get("in_range", False)
-    total_fees = data_resp["data"].get("fees_value", 0)
+    total_fees = data_resp.get("fees_value", 0)
 
     if position:
         if user not in position.users:
