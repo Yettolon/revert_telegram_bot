@@ -214,6 +214,10 @@ async def enter_position_id(
     exchange = data.get("exchange")
     network = data.get("network")
 
+    logger.info(
+        f"Added nft id by user id={user.telegram_id}: {nft_id} on {exchange}/{network}"
+    )
+
     url = f"{settings.REVERT_API_URL}/v1/positions/{network}/{exchange}/{nft_id}"
 
     async with aiohttp.ClientSession() as http_session:
