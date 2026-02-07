@@ -32,13 +32,13 @@ SUBSCRIPTION_PRICES = {
     ),
     SubscriptionTierEnum.BASIC: SubscriptionPrice(
         tier=SubscriptionTierEnum.BASIC,
-        stars=200,  # 500 Telegram Stars (~$10 USD equivalent)
+        stars=100,  # 500 Telegram Stars (~$10 USD equivalent)
         positions_limit=5,
         duration_days=30,
     ),
     SubscriptionTierEnum.PRO: SubscriptionPrice(
         tier=SubscriptionTierEnum.PRO,
-        stars=350,  # 1000 Telegram Stars (~$20 USD equivalent)
+        stars=250,  # 1000 Telegram Stars (~$20 USD equivalent)
         positions_limit=10,
         duration_days=30,
     ),
